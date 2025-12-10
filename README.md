@@ -1,181 +1,264 @@
 # SentriX
 
-A comprehensive security middleware library for Express.js applications with built-in protection against common web vulnerabilities.
+**Stop worrying about security. Start building.**
 
-## Features
-
- **JWT Authentication** - Secure token-based authentication  
- **CSRF Protection** - Prevent Cross-Site Request Forgery attacks  
- **Rate Limiting** - Anti-DoS protection with Redis or in-memory storage  
- **Request Validation** - Type-safe validation with Zod  
- **XSS Protection** - Automatic input sanitization  
- **Security Headers** - HSTS, CSP, X-Frame-Options, and more  
- **Safe HTTP Client** - Domain allowlisting for outbound requests  
- **IP Extraction** - Proper client IP detection with proxy support  
- **Structured Logging** - Comprehensive logging with sensitive data redaction  
-
-## Installation
+SentriX is a simple, all-in-one security package for Express.js that protects your API from common attacks. No security expertise needed – just install and use.
 
 ```bash
-npm install express zod jsonwebtoken xss ioredis node-fetch cookie-parser
+npm install sentrix
 ```
 
-## Quick Start
+---
 
-### 1. Configure Environment Variables
+## Why SentriX?
 
-Create a `.env` file:
+Building a secure API is hard. You need to worry about:
+- Hackers stealing tokens
+- Bots spamming your endpoints  
+- Form submission attacks
+- Malicious code injection
+- Invalid data breaking your app
 
+**SentriX handles all of this automatically.** Just add one line of code.
+
+---
+
+## 30-Second Setup
+
+### Step 1: Install
 ```bash
-NODE_ENV=development
-LOG_LEVEL=info
-PORT=3000
-JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters-long
-TRUST_PROXY=false
-SAFE_DOMAINS=api.example.com
+npm install sentrix express cookie-parser
 ```
 
-### 2. Basic Setup
+### Step 2: Create `.env` file
+```bash
+JWT_SECRET=put-any-random-32-character-string-here-abc123
+```
 
+### Step 3: Add to your Express app
 ```typescript
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import { sentrixMiddleware, sentrixErrorHandler } from './middleware/index.js';
-import { config } from './config/index.js';
+import { sentrixMiddleware, sentrixErrorHandler } from 'sentrix';
 
 const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
 
-// Configure trust proxy if behind reverse proxy
-if (config.trustProxy) {
-    app.set('trust proxy', 1);
-}
-
-// Protected route example
-app.post('/api/users',
-    sentrixMiddleware({
-        requireAuth: false,
-        requireCSRF: false,
-        enableDoS: true
-    }),
-    (req, res) => {
-        res.json({ message: 'Success' });
-    }
-);
-
-// Error handler MUST be last
-app.use(sentrixErrorHandler);
-
-app.listen(config.port);
-```
-
-## Usage Examples
-
-### Request Validation with Zod
-
-```typescript
-import { z } from 'zod';
-
-const createUserSchema = z.object({
-    body: z.object({
-        name: z.string().min(1).max(100),
-        email: z.string().email(),
-        age: z.number().min(18).optional(),
-    })
+// ONE LINE = Full Security
+app.post('/api/data', sentrixMiddleware(), (req, res) => {
+    res.json({ message: 'This route is now protected!' });
 });
 
-app.post('/api/users',
-    sentrixMiddleware({ schema: createUserSchema }),
+// Error handler (catches all security errors)
+app.use(sentrixErrorHandler);
+
+app.listen(3000);
+```
+
+**Done!** Your API now has:
+- Protection against bots and spam
+- Safe from malicious code injection
+- Security headers (blocks common attacks)
+- Automatic rate limiting (100 requests/hour per user)
+
+---
+
+## When Do I Use What?
+
+### Scenario 1: Public API (Anyone can access)
+**Example:** Blog posts, product catalog, weather data
+
+```typescript
+app.get('/api/products', 
+    sentrixMiddleware(),  // Basic security only
     (req, res) => {
-        // req.body is now validated and typed
-        res.json({ user: req.body });
+        res.json({ products: [...] });
     }
 );
 ```
 
-### JWT Authentication
+**What it does:**
+- Blocks spam/bots
+- Prevents XSS attacks
+- Adds security headers
+
+---
+
+### Scenario 2: Login-Protected (User must be logged in)
+**Example:** User profile, account settings, private data
 
 ```typescript
-app.get('/api/profile',
-    sentrixMiddleware({ requireAuth: true }),
+app.get('/api/user/profile', 
+    sentrixMiddleware({ requireAuth: true }),  // Requires login
     (req, res) => {
-        // req.user contains decoded JWT payload
-        res.json({ user: req.user });
+        // req.user has the logged-in user info
+        res.json({ name: req.user.name });
     }
 );
 ```
 
-### CSRF Protection
+**What it does:**
+- Checks user is logged in (via JWT token)
+- Blocks unauthorized users (401 error)
+- All the basic security too
+
+**Client needs to send:**
+```javascript
+fetch('/api/user/profile', {
+    headers: {
+        'Authorization': 'Bearer USER_TOKEN_HERE'
+    }
+})
+```
+
+---
+
+### Scenario 3: Form Submission (Changing data)
+**Example:** Update profile, create post, delete item, payment
 
 ```typescript
-// Issue token (on login or page load)
-app.get('/api/csrf-token',
+// Step 1: Give user a CSRF token (when page loads)
+app.get('/api/get-token', 
     generateCsrfMiddleware,
     (req, res) => {
         res.json({ token: res.locals.csrfToken });
     }
 );
 
-// Validate token on state-changing operations
-app.post('/api/settings',
-    sentrixMiddleware({
-        requireAuth: true,
-        requireCSRF: true
+// Step 2: Require token when submitting form
+app.post('/api/user/settings', 
+    sentrixMiddleware({ 
+        requireAuth: true,   // Must be logged in
+        requireCSRF: true    // Must have valid token
     }),
     (req, res) => {
-        res.json({ message: 'Settings updated' });
+        res.json({ message: 'Settings saved!' });
     }
 );
 ```
 
-Client must send token in `x-csrf-token` header:
+**What it does:**
+- Prevents CSRF attacks (hackers can't forge requests)
+- Ensures request came from your website
 
+**Client code:**
 ```javascript
-fetch('/api/settings', {
+// Get token first
+const { token } = await fetch('/api/get-token').then(r => r.json());
+
+// Use token when submitting
+fetch('/api/user/settings', {
     method: 'POST',
     headers: {
-        'Content-Type': 'application/json',
-        'x-csrf-token': csrfToken
+        'Authorization': 'Bearer USER_TOKEN',
+        'x-csrf-token': token,  // Important!
+        'Content-Type': 'application/json'
     },
+    credentials: 'include',  // Important!
     body: JSON.stringify({ theme: 'dark' })
 });
 ```
 
-### Custom Rate Limiting
+---
+
+### Scenario 4: Validate User Input (Ensure data is correct)
+**Example:** User registration, contact form, checkout
 
 ```typescript
-app.post('/api/login',
-    sentrixMiddleware({
-        enableDoS: true,
-        rateLimitOptions: {
-            maxRequests: 5,           // 5 attempts
-            windowMs: 15 * 60 * 1000  // per 15 minutes
-        }
-    }),
+import { z } from 'zod';
+
+// Define what valid data looks like
+const schema = z.object({
+    body: z.object({
+        email: z.string().email(),           // Must be valid email
+        age: z.number().min(18),             // Must be 18+
+        name: z.string().min(1).max(100)     // 1-100 characters
+    })
+});
+
+app.post('/api/register', 
+    sentrixMiddleware({ schema }),  // Auto-validates
     (req, res) => {
-        res.json({ message: 'Login successful' });
+        // If code reaches here, data is valid!
+        const { email, age, name } = req.body;
+        res.json({ message: 'User registered!' });
     }
 );
 ```
 
-### Safe HTTP Client
+**What it does:**
+- Checks data format before your code runs
+- Returns clear error if invalid
+- Prevents bad data from breaking your app
+
+**Example responses:**
+
+Valid request:
+```json
+{ "message": "User registered!" }
+```
+
+Invalid request:
+```json
+{
+    "error": "Invalid request payload",
+    "details": {
+        "errors": [
+            { "path": "body.email", "message": "Invalid email" },
+            { "path": "body.age", "message": "Must be 18 or older" }
+        ]
+    }
+}
+```
+
+---
+
+### Scenario 5: Strict Rate Limits (High-security endpoints)
+**Example:** Login, password reset, payment, admin actions
 
 ```typescript
-import { SafeHttpClient } from './middleware/index.js';
+app.post('/api/login', 
+    sentrixMiddleware({
+        rateLimitOptions: {
+            maxRequests: 5,              // Only 5 tries
+            windowMs: 15 * 60 * 1000     // Per 15 minutes
+        }
+    }),
+    (req, res) => {
+        // Login logic
+        res.json({ token: 'user_token' });
+    }
+);
+```
+
+**What it does:**
+- Limits login attempts (stops brute force attacks)
+- Blocks user for 15 min after 5 failed tries
+- Prevents account takeover
+
+---
+
+### Scenario 6: Call External APIs Safely
+**Example:** Fetch GitHub data, Stripe payment, SendGrid emails
+
+```typescript
+import { SafeHttpClient } from 'sentrix';
 
 const httpClient = new SafeHttpClient({
-    domains: ['api.github.com'],
+    domains: ['api.github.com', 'api.stripe.com'],  // Only these allowed
     timeoutMs: 5000,
     retries: 2
 });
 
-app.get('/api/external',
+app.get('/api/github/:user',
     sentrixMiddleware({ requireAuth: true }),
     async (req, res, next) => {
         try {
-            const response = await httpClient.get('https://api.github.com/users/osama2-9');
+            const response = await httpClient.get(
+                `https://api.github.com/users/${req.params.user}`
+            );
             const data = await response.json();
             res.json(data);
         } catch (error) {
@@ -185,209 +268,265 @@ app.get('/api/external',
 );
 ```
 
-## Configuration Options
+**What it does:**
+- Only allows calls to approved domains
+- Blocks calls to malicious sites
+- Auto-retries on failure
+- Times out if too slow
 
-### `sentrixMiddleware(options)`
+---
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `schema` | `ZodType` | `undefined` | Zod schema for request validation |
-| `requireAuth` | `boolean` | `false` | Enable JWT authentication |
-| `requireCSRF` | `boolean` | `false` | Enable CSRF protection |
-| `enableDoS` | `boolean` | `true` | Enable rate limiting |
-| `rateLimitOptions` | `object` | See below | Custom rate limit settings |
-
-#### Rate Limit Options
+## Complete Example (Real App)
 
 ```typescript
-{
-    maxRequests: 100,          // Requests per window
-    windowMs: 3600000,         // Window size (1 hour)
-    maxPayloadSize: 1048576    // Max payload (1MB)
-}
-```
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import { z } from 'zod';
+import { 
+    sentrixMiddleware, 
+    sentrixErrorHandler,
+    generateCsrfMiddleware 
+} from 'sentrix';
 
-## Security Best Practices
+const app = express();
 
-### 1. JWT Secret
+app.use(express.json());
+app.use(cookieParser());
 
-**CRITICAL:** Always use a strong, random secret in production:
+// PUBLIC ROUTES
 
-```bash
-# Generate secure secret
-openssl rand -base64 32
+// Health check
+app.get('/health', 
+    sentrixMiddleware({ enableDoS: false }),  // No rate limit
+    (req, res) => res.json({ status: 'ok' })
+);
 
-# Add to .env
-JWT_SECRET=your-generated-secret-here
-```
+// Get products (public)
+app.get('/api/products', 
+    sentrixMiddleware(),  // Basic security
+    (req, res) => res.json({ products: [] })
+);
 
-The application will **exit on startup** if `JWT_SECRET` is weak in production.
+// Get CSRF token
+app.get('/api/csrf-token',
+    generateCsrfMiddleware,
+    (req, res) => res.json({ token: res.locals.csrfToken })
+);
 
-### 2. Trust Proxy Configuration
+// Login (strict rate limit)
+const loginSchema = z.object({
+    body: z.object({
+        email: z.string().email(),
+        password: z.string().min(8)
+    })
+});
 
-If your app is behind a reverse proxy (nginx, load balancer):
-
-```bash
-TRUST_PROXY=true
-```
-
-Then configure Express:
-
-```typescript
-if (config.trustProxy) {
-    app.set('trust proxy', 1);
-}
-```
-
-### 3. Redis for Distributed Systems
-
-For apps running on multiple servers, use Redis for rate limiting:
-
-```bash
-REDIS_URL=redis://localhost:6379
-```
-
-Without Redis, rate limits are per-instance only.
-
-### 4. Content Security Policy
-
-Customize CSP directives in `config/index.ts`:
-
-```typescript
-cspDirectives: [
-    "default-src 'self'",
-    "script-src 'self' https://cdn.example.com",
-    "style-src 'self' 'unsafe-inline'",
-    // ... add your domains
-]
-```
-
-### 5. HTTPS in Production
-
-Always use HTTPS in production. The HSTS header is automatically set.
-
-## Error Handling
-
-All SentriX errors extend `SentriXError` with appropriate status codes:
-
-```typescript
-try {
-    // Your code
-} catch (error) {
-    if (error instanceof AuthenticationError) {
-        // 401 - Missing/invalid JWT
-    } else if (error instanceof CSRFError) {
-        // 403 - Invalid CSRF token
-    } else if (error instanceof RateLimitError) {
-        // 429 - Too many requests
-    } else if (error instanceof ValidationError) {
-        // 400 - Invalid request data
+app.post('/api/login',
+    sentrixMiddleware({
+        schema: loginSchema,
+        rateLimitOptions: { maxRequests: 5, windowMs: 900000 }
+    }),
+    (req, res) => {
+        // Check credentials, generate JWT
+        res.json({ token: 'generated_jwt_token' });
     }
-}
-```
+);
 
-The global error handler `sentrixErrorHandler` handles these automatically.
+// PROTECTED ROUTES (Login Required)
 
-## Logging
+// Get user profile
+app.get('/api/user/profile',
+    sentrixMiddleware({ requireAuth: true }),
+    (req, res) => {
+        res.json({ 
+            userId: req.user.id,
+            name: req.user.name 
+        });
+    }
+);
 
-SentriX uses structured logging with automatic sensitive data redaction:
+// Update profile
+const updateSchema = z.object({
+    body: z.object({
+        name: z.string().min(1).max(100),
+        bio: z.string().max(500).optional()
+    })
+});
 
-```typescript
-import { logger } from './utils/logger.js';
+app.put('/api/user/profile',
+    sentrixMiddleware({
+        schema: updateSchema,
+        requireAuth: true,
+        requireCSRF: true
+    }),
+    (req, res) => {
+        // Update user in database
+        res.json({ message: 'Profile updated!' });
+    }
+);
 
-logger.info('User action', { userId: 123, action: 'login' });
-logger.warn('Suspicious activity', { ip: '1.2.3.4' });
-logger.error('Database error', error, { query: 'SELECT...' });
-```
+// Create post
+const postSchema = z.object({
+    body: z.object({
+        title: z.string().min(1).max(200),
+        content: z.string().min(1)
+    })
+});
 
-Sensitive fields (password, token, secret, etc.) are automatically redacted.
+app.post('/api/posts',
+    sentrixMiddleware({
+        schema: postSchema,
+        requireAuth: true,
+        requireCSRF: true
+    }),
+    (req, res) => {
+        // Save post to database
+        res.json({ message: 'Post created!', post: req.body });
+    }
+);
 
-## Testing
+// ERROR HANDLER (MUST BE LAST)
+app.use(sentrixErrorHandler);
 
-Recommended test structure:
-
-```typescript
-import request from 'supertest';
-import app from './app.js';
-
-describe('POST /api/users', () => {
-    it('should validate request body', async () => {
-        const response = await request(app)
-            .post('/api/users')
-            .send({ name: '' }); // Invalid
-        
-        expect(response.status).toBe(400);
-        expect(response.body.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should create user with valid data', async () => {
-        const response = await request(app)
-            .post('/api/users')
-            .send({ name: 'John', email: 'john@example.com' });
-        
-        expect(response.status).toBe(200);
-    });
+app.listen(3000, () => {
+    console.log('Server running on http://localhost:3000');
 });
 ```
 
-## Production Checklist
+---
 
-Before deploying to production:
+## Configuration
 
-- [ ] Set `NODE_ENV=production`
-- [ ] Generate strong `JWT_SECRET` (min 32 chars)
-- [ ] Configure `TRUST_PROXY` if behind reverse proxy
-- [ ] Set up Redis for distributed rate limiting
-- [ ] Review and adjust rate limit settings
-- [ ] Configure CSP directives for your frontend
-- [ ] Enable HTTPS/TLS
-- [ ] Set appropriate log level (`warn` or `error`)
-- [ ] Review SAFE_DOMAINS for HTTP client
-- [ ] Test CSRF flow end-to-end
-- [ ] Set up monitoring and alerting
+### Environment Variables (`.env` file)
 
-## Architecture
+```bash
+# Required
+JWT_SECRET=your-32-char-secret-here-change-this-in-production
 
+# Optional (with defaults)
+NODE_ENV=development           # development, production, or test
+LOG_LEVEL=info                # debug, info, warn, error
+PORT=3000
+TRUST_PROXY=false             # Set true if behind nginx/load balancer
+SAFE_DOMAINS=api.example.com  # Comma-separated
+REDIS_URL=redis://localhost:6379  # For distributed rate limiting
 ```
-src/
-├── config/
-│   └── index.ts          # Consolidated configuration
-├── middleware/
-│   └── index.ts          # Main middleware factory
-├── security/
-│   ├── authHardening.ts  # JWT + security headers
-│   ├── csrf.ts           # CSRF protection
-│   ├── antiDos.ts        # Rate limiting
-│   ├── csp.ts            # Content Security Policy
-│   └── xss.ts            # XSS sanitization
-├── http/
-│   ├── inboundFilter.ts  # Request validation
-│   ├── sanitizeHeaders.ts # Header sanitization
-│   └── safeHttpClient.ts # Safe outbound requests
-├── utils/
-│   ├── logger.ts         # Structured logging
-│   ├── errors.ts         # Custom error classes
-│   ├── asyncHandler.ts   # Async error wrapper
-│   └── ipExtractor.ts    # IP detection
-└── types/
-    └── index.ts          # TypeScript definitions
+
+### Generate Strong JWT Secret
+
+```bash
+# On Mac/Linux
+openssl rand -base64 32
+
+# Copy output to .env
+JWT_SECRET=the-random-string-from-above
 ```
+
+---
+
+## Common Issues & Solutions
+
+### "Missing JWT token" error
+**Problem:** Frontend not sending Authorization header
+
+**Solution:**
+```javascript
+fetch('/api/profile', {
+    headers: {
+        'Authorization': `Bearer ${yourToken}`  // Add this!
+    }
+})
+```
+
+### "Invalid CSRF token" error
+**Problem:** Not including token or cookies
+
+**Solution:**
+```javascript
+fetch('/api/settings', {
+    headers: {
+        'x-csrf-token': token  // Add this!
+    },
+    credentials: 'include'  // AND this!
+})
+```
+
+### "Too many requests" error (429)
+**Problem:** Hit rate limit
+
+**Solutions:**
+- Wait 15-60 minutes (depends on endpoint)
+- Or increase limit in production:
+```typescript
+sentrixMiddleware({
+    rateLimitOptions: {
+        maxRequests: 1000,  // Increase for production
+        windowMs: 3600000   // 1 hour
+    }
+})
+```
+
+### Rate limiting not working across servers
+**Problem:** Running multiple server instances
+
+**Solution:** Use Redis
+```bash
+# Install Redis
+brew install redis  # Mac
+sudo apt install redis  # Linux
+
+# Start Redis
+redis-server
+
+# Add to .env
+REDIS_URL=redis://localhost:6379
+```
+
+---
+
+## All Options
+
+```typescript
+sentrixMiddleware({
+    // Validation
+    schema: zodSchema,           // Validate request with Zod
+
+    // Authentication
+    requireAuth: false,          // true = require JWT token
+
+    // CSRF Protection  
+    requireCSRF: false,          // true = require CSRF token
+
+    // Rate Limiting
+    enableDoS: true,             // false = disable rate limiting
+    rateLimitOptions: {
+        maxRequests: 100,        // Max requests per window
+        windowMs: 3600000,       // 1 hour window
+        maxPayloadSize: 1048576  // Max 1MB request size
+    }
+})
+```
+
+---
+
+## Ready for Production?
+
+Checklist before deploying:
+
+- [ ] Change `JWT_SECRET` to strong random value
+- [ ] Set `NODE_ENV=production` in .env
+- [ ] Enable `TRUST_PROXY=true` if using nginx/load balancer
+- [ ] Set up Redis for multi-server rate limiting
+- [ ] Use HTTPS (not HTTP)
+- [ ] Set `LOG_LEVEL=warn` or `error`
+- [ ] Test all endpoints with real frontend
+- [ ] Monitor error logs
+
+
+---
 
 ## License
 
-MIT
+MIT License - use it however you want!
 
-## Contributing
 
-Contributions welcome! Please ensure:
-
-1. All security fixes are thoroughly tested
-2. New features include tests and documentation
-3. Code follows TypeScript strict mode
-4. Sensitive data is properly redacted in logs
-
-## Support
-
-For security issues, please email osamaalsrraj3@gmail.com (do not open public issues).
-
-For bugs and features, open a GitHub issue.

@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodType, ZodError } from "zod";
-import { asyncHandler } from "../utils/asyncHandler";
-import { logger } from "../utils/logger";
-import { ValidationError } from "../utils/errors";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { logger } from "../utils/logger.js";
+import { ValidationError } from "../utils/errors.js";
 
 /**
  * Express middleware factory for Zod schema validation

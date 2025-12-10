@@ -1,8 +1,8 @@
 import fetch, { Response } from "node-fetch";
 import type { RequestInit } from "node-fetch";
 import { URL } from "url";
-import { config } from "../config";
-import { logger } from "../utils/logger";
+import { config } from "../config/index.js";
+import { logger } from "../utils/logger.js";
 
 const DEFAULT_TIMEOUT = config.http.timeoutMs;
 const DEFAULT_RETRIES = config.http.retries;
