@@ -1,0 +1,54 @@
+# Source files (only publish compiled dist/)
+src/
+*.ts
+!*.d.ts
+
+# Tests
+**/*.test.ts
+**/*.spec.ts
+src/tests/
+coverage/
+jest.config.js
+jest.setup.js
+.nyc_output/
+
+# Documentation (optional - keep if you want docs in package)
+# docs/
+
+# Config files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Misc
+*.log
+npm-debug.log*
+yarn-debug.log*
+.DS_Store
+Thumbs.db
+
+# Keep these in package
+!dist/
+!README.md
+!LICENSE
+!package.json
+!.env.example
