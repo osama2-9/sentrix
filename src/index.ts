@@ -12,7 +12,7 @@ export {
 } from "./middleware/index.js";
 
 // HTTP Client (separate export to avoid test issues)
-export { SafeHttpClient } from "./http/outboundClient";
+export { SafeHttpClient } from "./http/outboundClient.js";
 
 // Configuration
 export { config } from "./config/index.js";
