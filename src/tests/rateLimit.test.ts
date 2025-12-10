@@ -1,7 +1,7 @@
 import request from "supertest";
 import express from "express";
 import { antiDoS, cleanupAntiDoS } from "../security/antiDos.js";
-import { sentrixErrorHandler } from "../middleware/index.js";
+import { sentrixErrorHandler } from "../middleware/sentrixMiddleware.js";
 
 describe("Rate Limiting", () => {
   let app: express.Application;

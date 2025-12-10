@@ -2,7 +2,7 @@ import request from "supertest";
 import express from "express";
 import { z } from "zod";
 import { validateRequest } from "../http/inboundFilter.js";
-import { sentrixErrorHandler } from "../middleware/index.js";
+import { sentrixErrorHandler } from "../middleware/sentrixMiddleware.js";
 
 describe("Request Validation", () => {
   let app: express.Application;

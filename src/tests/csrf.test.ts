@@ -6,7 +6,7 @@ import {
   csrfProtection,
   cleanupCsrf,
 } from "../security/csrf.js";
-import { sentrixErrorHandler } from "../middleware/index.js";
+import { sentrixErrorHandler } from "../middleware/sentrixMiddleware.js";
 
 describe("CSRF Protection", () => {
   let app: express.Application;

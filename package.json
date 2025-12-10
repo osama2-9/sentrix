@@ -1,6 +1,6 @@
 {
   "name": "sentrix",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Comprehensive security middleware library for Express.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/example.ts",
+    "dev": "nodemon src/app.js",
     "start": "node dist/example.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -52,13 +52,42 @@
     "LICENSE",
     ".env.example"
   ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./middleware/*": {
+      "import": "./dist/middleware/*.js",
+      "types": "./dist/middleware/*.d.ts"
+    },
+    "./http/*": {
+      "import": "./dist/http/*.js",
+      "types": "./dist/http/*.d.ts"
+    },
+    "./security/*": {
+      "import": "./dist/security/*.js",
+      "types": "./dist/security/*.d.ts"
+    },
+    "./utils/*": {
+      "import": "./dist/utils/*.js",
+      "types": "./dist/utils/*.d.ts"
+    },
+    "./config/*": {
+      "import": "./dist/config/*.js",
+      "types": "./dist/config/*.d.ts"
+    }
+  },
   "dependencies": {
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.0.3",
-    "express": "^4.18.2",
+    "express": "^4.18.0",
+    "express-rate-limit": "^8.2.1",
     "ioredis": "^5.3.1",
     "jsonwebtoken": "^9.0.0",
     "node-fetch": "^3.3.1",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
     "xss": "^1.0.14",
     "zod": "^3.21.4"
   },
@@ -68,6 +97,7 @@
     "@types/jest": "^29.5.0",
     "@types/jsonwebtoken": "^9.0.2",
     "@types/node": "^18.15.11",
+    "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^5.57.1",
     "@typescript-eslint/parser": "^5.57.1",
     "eslint": "^8.38.0",

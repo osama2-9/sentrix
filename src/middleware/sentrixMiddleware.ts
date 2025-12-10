@@ -108,5 +108,5 @@ export function sentrixErrorHandler(
   });
 }
 
-export { generateCsrfMiddleware } from "../security/csrf";
-export { SafeHttpClient } from "../http/outboundClient";
+export { generateCsrfMiddleware } from "../security/csrf.js";
+export { SafeHttpClient } from "../http/outboundClient.js";

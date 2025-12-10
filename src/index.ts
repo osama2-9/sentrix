@@ -4,12 +4,11 @@
  */
 
 // Core middleware
-export {
-  sentrixMiddleware,
-  sentrixErrorHandler,
-  generateCsrfMiddleware,
-  type SentriXOptions,
-} from "./middleware/index.js";
+export { sentrixMiddleware } from "./middleware/sentrixMiddleware.js";
+export { sentrixErrorHandler } from "./middleware/sentrixMiddleware.js";
+export { generateCsrfMiddleware } from "./middleware/sentrixMiddleware.js";
+export type { SentriXOptions } from "./middleware/sentrixMiddleware.js";
+
 
 // HTTP Client (separate export to avoid test issues)
 export { SafeHttpClient } from "./http/outboundClient.js";
